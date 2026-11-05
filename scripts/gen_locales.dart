@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:gpth/locale.dart';
+import 'package:gpth/locales.g.dart';
 import 'package:path/path.dart' as p;
 
 const localesDir = 'locales';
@@ -30,11 +31,12 @@ String _code(File file) => p.basenameWithoutExtension(file.path);
 /// English goes first, then alphabetically
 String _sortKey(File file) => _code(file) == 'en' ? '' : _code(file);
 
-/// Builds the contents of `lib/locales.g.dart` from the JSON files in [dir]
+/// Reads and validates all the JSON files in [dir]. Returns the JSON that
+/// should be embedded in the code, for each language code.
 ///
 /// Throws [FormatException] with a message saying what's wrong and in which
 /// file, if any of them is invalid
-String generateLocalesSource(Directory dir) {
+Map<String, String> readLocaleFiles(Directory dir) {
   final files = dir
       .listSync()
       .whereType<File>()
@@ -46,6 +48,23 @@ String generateLocalesSource(Directory dir) {
     throw FormatException('No locale files found in ${dir.path}');
   }
 
+  final locales = <String, String>{};
+  for (final file in files) {
+    try {
+      locales[_code(file)] = _embeddedJson(
+        _code(file),
+        file.readAsStringSync(),
+      );
+    } on FormatException catch (e) {
+      throw FormatException('${p.basename(file.path)}: ${e.message}');
+    }
+  }
+  return locales;
+}
+
+/// The source of `lib/locales.g.dart`. It's not nicely formatted - [main] asks
+/// `dart format` to do that.
+String renderLocalesSource(Map<String, String> locales) {
   final buffer = StringBuffer()
     ..writeln('// GENERATED CODE - DO NOT EDIT BY HAND.')
     ..writeln('//')
@@ -53,19 +72,11 @@ String generateLocalesSource(Directory dir) {
     ..writeln('// To add or change a language, edit those files and run:')
     ..writeln('//   dart run scripts/gen_locales.dart')
     ..writeln()
-    ..writeln('// dart format off')
-    ..writeln()
     ..writeln('/// Language code -> JSON with the names for that language')
     ..writeln('/// (see `locale.dart` for how they are used).')
     ..writeln('const bundledLocaleJson = <String, String>{');
-  for (final file in files) {
-    final String json;
-    try {
-      json = _embeddedJson(_code(file), file.readAsStringSync());
-    } on FormatException catch (e) {
-      throw FormatException('${p.basename(file.path)}: ${e.message}');
-    }
-    buffer.writeln("  '${_code(file)}': r'$json',");
+  for (final entry in locales.entries) {
+    buffer.writeln("  '${entry.key}': r'${entry.value}',");
   }
   buffer.writeln('};');
   return buffer.toString();
@@ -115,20 +126,20 @@ void main(List<String> args) {
         '(there is no "$localesDir" folder here)');
     exit(2);
   }
-  final String source;
+  final Map<String, String> locales;
   try {
-    source = generateLocalesSource(Directory(localesDir));
+    locales = readLocaleFiles(Directory(localesDir));
   } on FormatException catch (e) {
     stderr.writeln('ERROR in locale files: ${e.message}');
     exit(1);
   }
 
-  final file = File(generatedFile);
   if (args.contains('--check')) {
-    final current = file.existsSync()
-        ? file.readAsStringSync().replaceAll('\r\n', '\n')
-        : '';
-    if (current != source) {
+    // compares what's in the code, and not the text of the file - so it
+    // doesn't matter how the formatter decided to lay it out
+    final upToDate = locales.length == bundledLocaleJson.length &&
+        locales.entries.every((e) => bundledLocaleJson[e.key] == e.value);
+    if (!upToDate) {
       stderr.writeln('$generatedFile is out of date - '
           'run: dart run scripts/gen_locales.dart');
       exit(1);
@@ -136,6 +147,17 @@ void main(List<String> args) {
     print('$generatedFile is up to date');
     return;
   }
-  file.writeAsStringSync(source);
+
+  File(generatedFile).writeAsStringSync(renderLocalesSource(locales));
+  // The CI wants all the code formatted, and how exactly the formatter does
+  // that depends on its version - so it's best to just ask the one you have
+  final formatted = Process.runSync(
+    Platform.resolvedExecutable,
+    ['format', generatedFile],
+  );
+  if (formatted.exitCode != 0) {
+    stderr.writeln('Warning: could not format $generatedFile - '
+        'run `dart format .` yourself:\n${formatted.stderr}');
+  }
   print('Wrote $generatedFile');
 }

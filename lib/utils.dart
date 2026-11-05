@@ -80,18 +80,18 @@ Future<int?> _dfLinux(String path) async {
 }
 
 Future<int?> _dfWindoza(String path) async {
-  final res = await Process.run('wmic', [
-    'LogicalDisk',
-    'Where',
-    'DeviceID="${p.rootPrefix(p.absolute(path)).replaceAll('\\', '')}"',
-    'Get',
-    'FreeSpace'
+  final drive =
+      p.rootPrefix(p.absolute(path)).replaceAll(RegExp(r'[\\/]'), '').trim();
+    final cmd = 'Get-CimInstance -ClassName Win32_LogicalDisk | '
+      'Where-Object { \$_.DeviceID -eq "$drive" } | '
+      'Select-Object -ExpandProperty FreeSpace';
+  final res = await Process.run('powershell.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    cmd,
   ]);
-  return res.exitCode != 0
-      ? null
-      : int.tryParse(
-          res.stdout.toString().split('\n').elementAtOrNull(1) ?? '',
-        );
+  return res.exitCode != 0 ? null : int.tryParse(res.stdout.toString().trim());
 }
 
 Future<int?> _dfMcOS(String path) async {

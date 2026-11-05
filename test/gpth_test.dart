@@ -223,15 +223,25 @@ AQACEQMRAD8AIcgXf//Z""";
     });
   });
   group('folder_classify', () {
+    final albumRoot =
+        Directory(join(Directory.systemTemp.path, 'gpth-folder-classify'));
     final dirs = [
-      Directory('./Photos from 2025'),
-      Directory('./Photos from 1969'),
-      Directory('./Photos from vacation'),
-      Directory('/tmp/very-random-omg'),
+      Directory(join(Directory.systemTemp.path, 'gpth-folder-classify',
+          'Photos from 2025')),
+      Directory(join(Directory.systemTemp.path, 'gpth-folder-classify',
+          'Photos from 1969')),
+      Directory(join(Directory.systemTemp.path, 'gpth-folder-classify',
+          'Photos from vacation')),
+      Directory(join(Directory.systemTemp.path, 'very-random-omg')),
     ];
     setUpAll(() async {
-      for (var d in dirs) {
-        await d.create();
+      activeLocale = LocaleConfig.defaults;
+      await albumRoot.create(recursive: true);
+      for (var d in dirs.take(3)) {
+        await d.create(recursive: true);
+      }
+      if (!await dirs[3].exists()) {
+        await dirs[3].create(recursive: true);
       }
     });
     test('is year/album folder', () async {
@@ -242,8 +252,14 @@ AQACEQMRAD8AIcgXf//Z""";
       expect(await isAlbumFolder(dirs[3]), false);
     });
     tearDownAll(() async {
-      for (var d in dirs) {
-        await d.delete();
+      activeLocale = LocaleConfig.defaults;
+      for (final d in dirs) {
+        if (await d.exists()) {
+          await d.delete();
+        }
+      }
+      if (await albumRoot.exists()) {
+        await albumRoot.delete(recursive: true);
       }
     });
   });
@@ -268,7 +284,7 @@ AQACEQMRAD8AIcgXf//Z""";
           await output.list(recursive: true, followLinks: false).toSet();
       // 2 folders + media + 1 album-ed shortcut
       expect(outputted.length, 2 + media.length + 1);
-      expect(outputted.whereType<Link>().length, 1);
+      expect(outputted.whereType<Link>().length, Platform.isWindows ? 0 : 1);
       expect(
         outputted.whereType<Directory>().map((e) => basename(e.path)).toSet(),
         {'ALL_PHOTOS', 'Vacation'},

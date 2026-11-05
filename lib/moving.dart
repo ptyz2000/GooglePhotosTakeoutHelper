@@ -27,13 +27,16 @@ File findNotExistingName(File initialFile) {
 /// Uses [findNotExistingName] for safety
 ///
 /// WARN: Crashes with non-ascii names :(
-Future<File> createShortcut(Directory location, File target) async {
-  final name = '${p.basename(target.path)}${Platform.isWindows ? '.lnk' : ''}';
+Future<Link> createShortcut(Directory location, File target) async {
+  final name = p.basename(target.path);
   final link = findNotExistingName(File(p.join(location.path, name)));
   // this must be relative to not break when user moves whole folder around:
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/232
   final targetRelativePath = p.relative(target.path, from: link.parent.path);
-  if (Platform.isWindows) {
+  try {
+    return await Link(link.path).create(targetRelativePath);
+  } on FileSystemException {
+    if (!Platform.isWindows) rethrow;
     final res = await Process.run(
       'powershell.exe',
       [
@@ -56,9 +59,7 @@ Future<File> createShortcut(Directory location, File target) async {
           '...or try other album solution\n'
           'sorry for inconvenience :(';
     }
-    return File(link.path);
-  } else {
-    return File((await Link(link.path).create(targetRelativePath)).path);
+    return Link(link.path);
   }
 }
 
@@ -125,7 +126,7 @@ Stream<int> moveFiles(
       await folder.create(recursive: true);
 
       /// result file/symlink to later change modify time
-      File? result;
+      FileSystemEntity? result;
 
       /// moves/copies file with safe name
       // it's here because we do this for two cases
@@ -150,7 +151,7 @@ Stream<int> moveFiles(
       if (file.key == null) {
         // if it's just normal "Photos from .." (null) file, just move it
         result = await moveFile();
-        mainFile = result;
+        mainFile = result as File;
       } else if (albumBehavior == 'shortcut' && mainFile != null) {
         try {
           result = await createShortcut(folder, mainFile);
@@ -178,7 +179,11 @@ Stream<int> moveFiles(
         time = DateTime(1970);
       }
       try {
-        await result.setLastModified(time);
+        if (result is File) {
+          await (result).setLastModified(time);
+        } else if (result is Link) {
+          await File(result.path).setLastModified(time);
+        }
       } on OSError catch (e) {
         // Sometimes windoza throws error but successes anyway 🙃:
         // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/229#issuecomment-1685085899
@@ -194,8 +199,7 @@ Stream<int> moveFiles(
       yield ++i;
 
       if (albumBehavior == 'json') {
-        infoJson[p.basename(result.path)] =
-            m.files.keys.whereNotNull().toList();
+        infoJson[p.basename(result.path)] = m.files.keys.nonNulls.toList();
       }
     }
     // done with this media - next!
