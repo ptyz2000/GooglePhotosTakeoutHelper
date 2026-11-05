@@ -1,0 +1,7 @@
+{
+  "_note": "Copy this file to <language code>.json (like de.json or pt-BR.json) and fill it in. Keys starting with _ (like this one) are just notes and are ignored.",
+  "name": "Name of the language in English, like German",
+  "credits": ["your GitHub @username"],
+  "yearFolders": ["Photos from {year}"],
+  "editedSuffixes": ["-edited"]
+}

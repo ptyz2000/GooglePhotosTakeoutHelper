@@ -1,0 +1,7 @@
+{
+  "_note": "Copy this file, rename it, and replace the values with the names from YOUR Takeout. Lists are ADDED to the built-in names, so only list what's new.",
+  "yearFolders": ["Photos from {year}"],
+  "editedSuffixes": ["-edited"],
+  "allPhotosFolder": "ALL_PHOTOS",
+  "unknownDateFolder": "date-unknown"
+}

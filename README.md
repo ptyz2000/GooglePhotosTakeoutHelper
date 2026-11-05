@@ -67,6 +67,31 @@ If you want to run it on Synology, have problems with interactive, or just love 
 
 Done! Enjoy your photos!!!
 
+### Takeout in a language other than English 🌍
+
+Google names some folders and files after the language of your account - for example, the `Photos from 2021` folders have different names in other languages. `gpth` knows the names for all languages in the [`locales/`](locales/) folder, and uses them automatically - you don't have to tell it which one is yours.
+
+If `gpth` says it found nothing, or `--skip-extras` doesn't catch your edited photos, your language is probably missing or incomplete. You can fix that for yourself right away, with a small JSON file:
+
+```json
+{
+  "yearFolders": ["Photos from {year}", "{year} photos"],
+  "editedSuffixes": ["-edited"],
+  "allPhotosFolder": "ALL_PHOTOS",
+  "unknownDateFolder": "date-unknown"
+}
+```
+```bash
+gpth --input "folder/with/all/takeouts" --output "your/output/folder" --locale-file my-language.json
+```
+
+- `yearFolders` - names of the year folders. Open one in your Takeout, copy its name, and replace the year with `{year}`. The `{year}` can go anywhere in the name
+- `editedSuffixes` - what Google adds to the names of edited photos (like `-edited`). Case doesn't matter
+- `allPhotosFolder`, `unknownDateFolder` - names of folders in the *output*. Totally optional, just for looks
+- Lists are **added** to the built-in names, so only write what's new. Every key is optional
+
+**Then please share it with everyone!** Every language added to [`locales/`](locales/) helps the next person with the same problem - and you don't need to know any programming for it. See [`locales/README.md`](locales/README.md), or just [open an issue](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/new?template=new-language.md) and paste the folder names 💖
+
 ### Running manually with cmd
 
 You may still need this mode if:

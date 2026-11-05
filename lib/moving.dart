@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:gpth/interactive.dart' as interactive;
+import 'package:gpth/locale.dart';
 import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
 
@@ -109,9 +110,9 @@ Stream<int> moveFiles(
       final folder = Directory(
         p.join(
           output.path,
-          file.key?.trim() ?? 'ALL_PHOTOS', // album or all
+          file.key?.trim() ?? activeLocale.allPhotosFolder, // album or all
           date == null
-              ? 'date-unknown'
+              ? activeLocale.unknownDateFolder
               : divideToDates
                   ? p.join(
                       '${date.year}',

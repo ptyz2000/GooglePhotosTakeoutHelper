@@ -82,6 +82,12 @@ Future<void> nothingFoundMessage() async {
     "    visit https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper\n"
     "    again and request new, correct Takeout",
   );
+  print(
+    "  - your language is not supported yet, so \"year folders\" have other\n"
+    "    names - see the --locale-file option in 'gpth --help', and please\n"
+    "    share your language so others can use it too:\n"
+    "    https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/tree/master/locales",
+  );
   print('After fixing this, go ahead and try again :)');
 }
 

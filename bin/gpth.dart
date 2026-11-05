@@ -7,6 +7,7 @@ import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
 import 'package:gpth/interactive.dart' as interactive;
+import 'package:gpth/locale.dart';
 import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
@@ -49,6 +50,13 @@ void main(List<String> arguments) async {
       allowedHelp: interactive.albumOptions,
       defaultsTo: 'shortcut',
     )
+    ..addOption(
+      'locale-file',
+      help: 'JSON file with names in your Takeout\'s language: year folders, '
+          '"edited" suffixes, output folder names. '
+          'Use it if gpth finds nothing in a non-English Takeout. '
+          'See README for the format.',
+    )
     ..addFlag('divide-to-dates', help: 'Divide output to folders by year/month')
     ..addFlag('skip-extras', help: 'Skip extra images (like -edited etc)')
     ..addFlag(
@@ -84,6 +92,19 @@ void main(List<String> arguments) async {
     print(helpText);
     print(parser.usage);
     return;
+  }
+
+  // must happen before anything looks at folder/file names
+  if (args['locale-file'] != null) {
+    try {
+      activeLocale = await LocaleConfig.fromFile(File(args['locale-file']));
+    } on FileSystemException catch (e) {
+      error("Can't read locale file ${args['locale-file']}: ${e.message}");
+      quit(11);
+    } on FormatException catch (e) {
+      error('Invalid locale file ${args['locale-file']}: ${e.message}');
+      quit(2);
+    }
   }
 
   if (interactive.indeed) {

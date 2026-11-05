@@ -1,0 +1,6 @@
+{
+  "name": "English",
+  "credits": ["@DalenW"],
+  "yearFolders": ["Photos from {year}"],
+  "editedSuffixes": ["-edited", "-effects", "-smile", "-mix"]
+}

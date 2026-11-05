@@ -6,6 +6,7 @@ import 'package:gpth/date_extractor.dart';
 import 'package:gpth/extras.dart';
 import 'package:gpth/folder_classify.dart';
 import 'package:gpth/grouping.dart';
+import 'package:gpth/locale.dart';
 import 'package:gpth/media.dart';
 import 'package:gpth/moving.dart';
 import 'package:gpth/utils.dart';
@@ -365,6 +366,142 @@ AQACEQMRAD8AIcgXf//Z""";
       );
     });
     tearDown(() async => await output.delete(recursive: true));
+  });
+
+  /// Language-dependent names - see lib/locale.dart
+  group('Locale', () {
+    // the active locale is global - always put the default one back
+    tearDown(() => activeLocale = LocaleConfig.defaults);
+
+    bool isYear(String name) => activeLocale.isYearFolderName(name);
+
+    test('Bundled locales cover what gpth always supported', () {
+      expect(isYear('Photos from 2021'), true);
+      expect(isYear('Photos from 1969'), true);
+      expect(isYear('Photos from 2121'), false);
+      expect(isYear('Photos from vacation'), false);
+      expect(
+        extraFormats,
+        containsAll([
+          '-edited',
+          '-effects',
+          '-smile',
+          '-mix',
+          '-edytowane',
+          '-bearbeitet',
+          '-bewerkt',
+          '-編集済み',
+          '-modificato',
+          '-modifié',
+          '-ha editado',
+          '-editat',
+        ]),
+      );
+      expect(activeLocale.allPhotosFolder, 'ALL_PHOTOS');
+      expect(activeLocale.unknownDateFolder, 'date-unknown');
+    });
+    test('Custom year folders are added to the built-in ones', () {
+      activeLocale = activeLocale.extendedWithJson(
+        '{"yearFolders": ["{year} pics", "Pics (of) {year}."]}',
+      );
+      expect(isYear('2021 pics'), true); // year can go first
+      expect(isYear('Pics (of) 2021.'), true);
+      expect(isYear('Pics (of) 2021X'), false); // '.' is not a wildcard
+      expect(isYear('Photos from 2021'), true); // built-in still works
+      expect(isYear('2121 pics'), false);
+    });
+    test('Year folders match with decomposed (macOS) accents', () {
+      activeLocale = activeLocale.extendedWithJson(
+        '{"yearFolders": ["Ann\\u00e9es {year}"]}', // composed é
+      );
+      expect(isYear('Anne\u0301es 2021'), true); // e + combining accent
+    });
+    test('Custom edited suffixes', () {
+      final m = [
+        Media({null: File('photo-IZMENJENO.jpg')}),
+        Media({null: File('photo.jpg')}),
+      ];
+      expect(removeExtras(m.toList()), 0); // unknown before...
+      activeLocale =
+          activeLocale.extendedWithJson('{"editedSuffixes": ["-Izmenjeno"]}');
+      expect(removeExtras(m), 1); // ...case doesn't matter after
+      expect(m.length, 1);
+    });
+    test('Custom output folder names', () async {
+      activeLocale = activeLocale.extendedWithJson(
+        '{"allPhotosFolder": "ALL_MY_PHOTOS", "unknownDateFolder": "no-date"}',
+      );
+      final out = Directory(
+        join(Directory.systemTemp.path, 'testy-locale-output'),
+      );
+      await out.create();
+      addTearDown(() => out.delete(recursive: true));
+      await moveFiles(
+        [
+          Media({null: imgFile2}), // no date
+          Media({null: imgFile3}, dateTaken: DateTime(2022, 10, 28)),
+        ],
+        out,
+        copy: true,
+        divideToDates: false,
+        albumBehavior: 'nothing',
+      ).toList();
+      final dirs =
+          await out.list(recursive: true).whereType<Directory>().toList();
+      expect(
+        dirs.map((e) => basename(e.path)).toSet(),
+        {'ALL_MY_PHOTOS', 'no-date'},
+      );
+    });
+    test('Notes and BOM in locale file are tolerated', () {
+      final c = LocaleConfig.defaults.extendedWithJson(
+        '\uFEFF{"_note": "hello", "editedSuffixes": ["-x"]}',
+      );
+      expect(c.editedSuffixes, contains('-x'));
+    });
+    test('Invalid locale files are rejected', () {
+      final base = LocaleConfig.defaults;
+      expect(() => base.extendedWithJson('not json'), throwsFormatException);
+      expect(() => base.extendedWithJson('[]'), throwsFormatException);
+      // typo in key
+      expect(
+        () => base.extendedWithJson('{"yearFolder": []}'),
+        throwsFormatException,
+      );
+      expect(
+        () => base.extendedWithJson('{"yearFolders": "Photos from {year}"}'),
+        throwsFormatException,
+      );
+      expect(
+        () => base.extendedWithJson('{"yearFolders": ["no placeholder"]}'),
+        throwsFormatException,
+      );
+      // would match (and --skip-extras would delete) everything
+      expect(
+        () => base.extendedWithJson('{"editedSuffixes": [""]}'),
+        throwsFormatException,
+      );
+      expect(
+        () => base.extendedWithJson('{"allPhotosFolder": "a/b"}'),
+        throwsFormatException,
+      );
+      expect(
+        () => base.extendedWithJson('{"unknownDateFolder": ".."}'),
+        throwsFormatException,
+      );
+    });
+    test('Loading from file', () async {
+      final file = File(join(Directory.systemTemp.path, 'testy-locale.json'));
+      await file.writeAsString('{"editedSuffixes": ["-izmenjeno"]}');
+      addTearDown(() => file.delete());
+      final loaded = await LocaleConfig.fromFile(file);
+      expect(loaded.editedSuffixes, contains('-izmenjeno'));
+      expect(loaded.editedSuffixes, contains('-edited')); // defaults kept
+      await expectLater(
+        LocaleConfig.fromFile(File('this-does-not-exist.json')),
+        throwsA(isA<FileSystemException>()),
+      );
+    });
   });
 
   /// Delete all shitty files as we promised
