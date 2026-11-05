@@ -82,7 +82,7 @@ Future<int?> _dfLinux(String path) async {
 Future<int?> _dfWindoza(String path) async {
   final drive =
       p.rootPrefix(p.absolute(path)).replaceAll(RegExp(r'[\\/]'), '').trim();
-    final cmd = 'Get-CimInstance -ClassName Win32_LogicalDisk | '
+  final cmd = 'Get-CimInstance -ClassName Win32_LogicalDisk | '
       'Where-Object { \$_.DeviceID -eq "$drive" } | '
       'Select-Object -ExpandProperty FreeSpace';
   final res = await Process.run('powershell.exe', [
